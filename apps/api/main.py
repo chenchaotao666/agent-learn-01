@@ -1,11 +1,12 @@
 import asyncio
 import json
 import logging
+from contextlib import asynccontextmanager, aclosing
 from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from src.schemas import ChatInput, DocumentInput
 
@@ -13,6 +14,7 @@ from src.config import ROOT, Settings
 from src.rag.agent import Model
 from src.rag.embedding import Embedder
 from src.rag.service import RagService
+from src.rag.vector_store import VectorStoreError
 from src.store import Store
 
 logger = logging.getLogger("office")
@@ -28,7 +30,19 @@ def create_app(settings: Settings | None = None):
     embedder = Embedder(settings)
     rag = RagService(store, embedder, settings.min_score)
     model = Model(settings)
-    app = FastAPI(title="知行 · AI 办公实验室", version="0.2.0")
+    @asynccontextmanager
+    async def lifespan(app):
+        try:
+            rag.initialize()
+            yield
+        finally:
+            rag.close()
+
+    app = FastAPI(title="知行 · AI 办公实验室", version="0.2.0", lifespan=lifespan)
+
+    @app.exception_handler(VectorStoreError)
+    async def vector_error(request, exc):
+        return JSONResponse(status_code=503, content={"detail": str(exc)})
     app.state.store, app.state.rag, app.state.model = store, rag, model
     from apps.api.extensions import attach
     attach(app, settings, store, rag, model)
@@ -42,6 +56,9 @@ def create_app(settings: Settings | None = None):
     @app.get("/health")
     def health():
         return {"status": "ok", "model_mode": settings.model_mode,
+                "vector_store": "qdrant", "qdrant_mode": "server" if settings.qdrant_url else "local",
+                "embedding_model": settings.embedding_model if settings.embedding_mode == "ollama" else "hash-char-bigram-v1",
+                "qdrant_collection": rag.index.collection,
                 "embedding_mode": settings.embedding_mode, "embedding_key": embedder.key,
                 "chat_model": settings.deepseek_model if settings.model_mode == "deepseek" else settings.chat_model if settings.model_mode == "ollama" else "mock",
                 'configured': settings.model_mode != 'deepseek' or bool(settings.deepseek_api_key),
@@ -69,7 +86,7 @@ def create_app(settings: Settings | None = None):
 
     @app.delete("/v1/documents/{document_id}")
     def delete_document(document_id: str):
-        if not store.delete(document_id):
+        if not rag.delete(document_id):
             raise HTTPException(404, "文档不存在")
         return {"deleted": True}
 
@@ -129,18 +146,27 @@ def create_app(settings: Settings | None = None):
             try:
                 store.add_message(cid, "user", body.question, "complete", settings.model_mode)
                 yield event("meta", {"conversation_id": cid, "mode": settings.model_mode})
-                async with asyncio.timeout(settings.timeout):
+                deadline = asyncio.get_running_loop().time() + settings.timeout
+                async with asyncio.timeout_at(deadline):
                     resolved, context = app.state.memory.context(cid, body.question)
                     hits = await rag.search(resolved, body.top_k)
                     # Recheck before exposing sources in case an import/delete overlapped embedding.
                     hits = [h for h in hits if (c := store.citation(h["id"])) and c["version"] == c["active_version"]]
                     citation_ids = [h["id"] for h in hits]
-                    yield event("sources", hits)
-                    async for delta in app.state.model.stream(json.dumps({"question": resolved, "context": context}, ensure_ascii=False), hits):
+                yield event("sources", hits)
+                # Never keep a timeout context open across a yield to the ASGI sender:
+                # cancellation there can truncate SSE without an error/done frame.
+                async with aclosing(app.state.model.stream(json.dumps({"question": resolved, "context": context}, ensure_ascii=False), hits)) as stream:
+                    while True:
+                        try:
+                            async with asyncio.timeout_at(deadline):
+                                delta = await anext(stream)
+                        except StopAsyncIteration:
+                            break
                         answer += delta
                         yield event("delta", {"text": delta})
-                    if not answer.strip():
-                        raise ValueError("empty model output")
+                if not answer.strip():
+                    raise ValueError("empty model output")
                 status = "complete"
             except asyncio.CancelledError:
                 logger.info("chat_cancelled conversation=%s", cid)

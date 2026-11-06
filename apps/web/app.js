@@ -170,7 +170,7 @@ $('#chat-form').onsubmit = async e => {
   try {
     const health = await (await api('/health')).json();
     $('#mode').textContent = health.model_mode === 'mock' ? '● 模拟模式' : `● ${health.chat_model}`;
-    $('#notice').textContent = `${health.model_mode === 'mock' ? '当前使用 Mock 摘录原文' : `当前使用 ${health.model_mode} / Pydantic AI`} · ${health.embedding_mode === 'hash' ? '字符向量基线，不具备语义理解能力' : 'Ollama 语义向量检索'}。${health.configured ? '导入资料后开始提问。' : '请在 .env 填入 DEEPSEEK_API_KEY 后重启服务。'}`;
+    $('#notice').textContent = `${health.model_mode === 'mock' ? '当前使用 Mock 摘录原文' : `当前使用 ${health.model_mode} / Pydantic AI`} · ${health.vector_store === 'qdrant' ? `Qdrant ${health.qdrant_mode === 'server' ? '服务模式' : '本地模式'} · ` : ''}${health.embedding_mode === 'hash' ? '字符向量基线，不具备语义理解能力' : 'Ollama 语义向量检索'}。${health.configured ? '导入资料后开始提问。' : '请在 .env 填入 DEEPSEEK_API_KEY 后重启服务。'}`;
     await Promise.all([loadDocuments(), loadHistory()]);
   } catch (error) { toast(error.message); $('#mode').textContent = '连接失败'; }
 })();

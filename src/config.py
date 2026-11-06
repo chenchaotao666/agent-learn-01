@@ -10,6 +10,10 @@ ROOT = Path(__file__).resolve().parent.parent
 @dataclass(frozen=True)
 class Settings:
     database: str = "data/app.sqlite3"
+    qdrant_url: str = "http://127.0.0.1:6333"
+    qdrant_path: str = ""
+    qdrant_collection: str = "knowledge"
+    qdrant_api_key: str = field(default="", repr=False)
     model_mode: str = "mock"
     embedding_mode: str = "hash"
     ollama_url: str = "http://127.0.0.1:11434"
@@ -40,8 +44,15 @@ class Settings:
     @classmethod
     def from_env(cls):
         load_dotenv(ROOT / ".env")
+        qdrant_url = os.getenv("QDRANT_URL", "http://127.0.0.1:6333").strip()
+        if not qdrant_url:
+            raise ValueError("QDRANT_URL 不能为空，请启动 Docker Qdrant 并配置服务地址")
         return cls(
             database=os.getenv("DATABASE_PATH", "data/app.sqlite3"),
+            qdrant_url=qdrant_url,
+            qdrant_path=os.getenv("QDRANT_PATH", "").strip(),
+            qdrant_collection=os.getenv("QDRANT_COLLECTION", "knowledge"),
+            qdrant_api_key=os.getenv("QDRANT_API_KEY", ""),
             model_mode=os.getenv("MODEL_MODE", "deepseek"),
             embedding_mode=os.getenv("EMBEDDING_MODE", "hash"),
             ollama_url=os.getenv("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/"),
