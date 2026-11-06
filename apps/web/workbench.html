@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Agent 工作台 · 知行</title><link rel="icon" href="/static/favicon.svg"><link rel="stylesheet" href="/static/workbench.css"><script src="/static/workbench.js" defer></script></head>
+<body>
+<header><div><a href="/">← 知识问答</a><h1>Agent 工作台</h1><p>从工具调用到业务结果，每一步都可以核对。</p></div><span id="configuration">连接中…</span></header>
+<div id="alert" role="status" hidden></div>
+<nav aria-label="功能导航"><button data-tab="runs" class="selected">预算 Agent</button><button data-tab="memory">对话与记忆</button><button data-tab="feedback">反馈与评测</button><button data-tab="translation">术语翻译</button><button data-tab="speech">语音问答</button></nav>
+<main>
+<section id="runs" class="panel">
+  <div class="grid"><article><h2>发起预算审查</h2><form id="run-form">
+    <label>任务目标<textarea id="goal" required maxlength="2000">检查项目采购预算并生成审批草稿</textarea></label>
+    <label>项目<select id="project"><option value="">待确认（测试澄清流程）</option><option value="P1001" selected>P1001 · 星河 / 办公数字化</option><option value="P2002">P2002 · 星河 / 仓储改造</option></select></label>
+    <label>申请金额（人民币）<input id="amount" value="200000.00" inputmode="decimal" placeholder="不填写时进入等待补充"></label>
+    <label>执行方式<select id="run-mode"><option value="agent">Pydantic AI Agent</option><option value="workflow">确定性工作流（对照）</option></select></label>
+    <button class="primary">创建并执行</button><button id="seed-lab" type="button">导入演示制度</button>
+  </form><h3>任务记录</h3><div id="run-list"></div></article>
+  <article><h2>任务详情 <span id="run-status" class="badge">未选择</span></h2><p id="run-summary" class="muted">选择任务查看执行步骤和审批草稿。</p><ol id="steps"></ol><pre id="draft"></pre>
+    <div id="run-controls" hidden><button id="confirm" class="primary" hidden>确认当前草稿并提交</button><button id="resume">从检查点恢复</button><button id="revise">使用左侧项目与金额重新规划</button><button id="cancel">取消任务</button></div><p class="muted small">这是本地模拟审批。修改项目或金额后需要重新生成并确认草稿。</p>
+  </article></div>
+</section>
+<section id="memory" class="panel" hidden><div class="grid"><article><h2>选择消息来源</h2><label>会话<select id="conversation-select"></select></label><button id="load-conversation">加载会话与上下文</button><pre id="conversation-context"></pre><label>用户消息<select id="memory-source"></select></label>
+<form id="memory-form"><label>明确记住的偏好或稳定事实<textarea id="memory-value" required maxlength="1000" placeholder="例如：报告先给结论，再列依据"></textarea></label><label>作用范围<select id="memory-project"><option value="">全局偏好</option><option>P1001</option><option>P2002</option></select></label><label class="inline"><input id="memory-confirm" type="checkbox" required>我确认将以上内容保存为长期记忆</label><button class="primary">保存记忆</button></form></article><article><h2>有效记忆</h2><div id="memory-list"></div><p class="muted">动态预算余额由工具实时查询，不写入长期记忆。修正和遗忘会在下一轮上下文中生效。</p></article></div></section>
+<section id="feedback" class="panel" hidden><div class="grid"><article><h2>回答反馈</h2><p class="muted">先在“对话与记忆”选择会话并加载消息。</p><form id="feedback-form"><label>助手回答<select id="feedback-message"></select></label><label>类别<select id="feedback-category"><option value="retrieval">召回问题</option><option value="fact">事实错误</option><option value="citation">引用错误</option><option value="context">指代问题</option><option value="helpful">有帮助</option></select></label><label>修正建议<textarea id="feedback-correction"></textarea></label><button class="primary">提交反馈</button></form><h3>待复核记录</h3><div id="feedback-list"></div></article>
+<article><h2>人工复核</h2><form id="review-form"><label>反馈 ID<input id="review-id" readonly required></label><label>处理结果<select id="review-decision"><option value="accepted">采纳</option><option value="rejected">拒绝</option><option value="needs_information">需要补充</option></select></label><label>标准答案<textarea id="review-answer"></textarea></label><label>证据 ID（逗号分隔）<input id="review-evidence"></label><label>复核理由<textarea id="review-reason" required></textarea></label><button class="primary">保存复核</button></form><hr><h3>回归评测</h3><button id="publish">发布已采纳样本</button><label>数据集<select id="dataset-select"></select></label><button id="evaluate">运行固定回归集</button><pre id="eval-result"></pre><p class="muted small">数据集为已知问题回归集。字符串包含检查不等于模型语义准确率。</p></article></div></section>
+<section id="translation" class="panel" hidden><article><h2>采购术语翻译</h2><form id="translation-form"><label>原文<textarea id="translation-text" rows="6" required>项目 P1001 的采购订单金额为 200000 元，需要预算调整。</textarea></label><label>目标语言<input id="target-language" value="English" required></label><button class="primary">按术语 Skill 翻译</button></form><pre id="translation-result"></pre></article></section>
+<section id="speech" class="panel" hidden><article><h2>语音 → 文字 → 问答 → 朗读</h2><p id="speech-config" class="muted"></p><div class="actions"><button id="record">开始录音</button><button id="record-stop" disabled>停止并转写</button><label class="file-label">上传录音<input id="audio-file" type="file" accept="audio/*"></label></div><label>转写文本（核对并修正编号和金额）<textarea id="transcript" rows="4"></textarea></label><button id="voice-ask" class="primary">确认文字并提问</button><pre id="voice-answer"></pre><button id="voice-speak" disabled>朗读已完成回答</button><audio id="audio-player" controls></audio></article></section>
+</main><footer>单用户本地实验 · Pydantic 参数校验 + Pydantic AI Agent · 模拟数据</footer>
+</body></html>

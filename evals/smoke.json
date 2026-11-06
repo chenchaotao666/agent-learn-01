@@ -1,0 +1,22 @@
+[
+  {"id":"q01","question":"国内差旅住宿报销上限是多少？","expected_file":"travel-hotel.md","answer_contains":"600"},
+  {"id":"q02","question":"项目采购超过预算时需要什么审批？","expected_file":"procurement-budget.md","answer_contains":"预算调整"},
+  {"id":"q03","question":"出差高铁默认购买什么座位？","expected_file":"travel-transport.md","answer_contains":"二等座"},
+  {"id":"q04","question":"国内出差餐费补助是多少？","expected_file":"travel-meal.md","answer_contains":"100"},
+  {"id":"q05","question":"采购金额达到多少需要三家供应商报价？","expected_file":"procurement-quotes.md","answer_contains":"50000"},
+  {"id":"q06","question":"合同签署后几天内需要归档？","expected_file":"contract-archive.md","answer_contains":"5 个工作日"},
+  {"id":"q07","question":"发票抬头有什么要求？","expected_file":"invoice-check.md","answer_contains":"公司全称"},
+  {"id":"q08","question":"P1001 项目的年度预算是多少？","expected_file":"project-p1001.md","answer_contains":"1000000"},
+  {"id":"q09","question":"P2002 属于什么业务？","expected_file":"project-p2002.md","answer_contains":"仓储改造"},
+  {"id":"q10","question":"预算使用率怎样计算？","expected_file":"budget-definition.md","answer_contains":"已使用金额除以年度预算"},
+  {"id":"q11","question":"会议纪要需要包含哪些内容？","expected_file":"meeting-template.md","answer_contains":"截止日期"},
+  {"id":"q12","question":"采购订单的英文术语是什么？","expected_file":"translation-terms.md","answer_contains":"Purchase Order"},
+  {"id":"q13","question":"领取办公设备应记录什么？","expected_file":"equipment.md","answer_contains":"设备编号"},
+  {"id":"q14","question":"采购档案文件名使用什么格式？","expected_file":"archive-naming.md","answer_contains":"项目编号_材料类型_日期"},
+  {"id":"q15","question":"项目预算月报何时提交？","expected_file":"budget-monthly.md","answer_contains":"3 个工作日"},
+  {"id":"q16","question":"采购验收单由谁确认？","expected_file":"procurement-acceptance.md","answer_contains":"实际使用人"},
+  {"id":"q17","question":"申请供应商付款需要哪些材料？","expected_file":"payment-documents.md","answer_contains":"验收单"},
+  {"id":"q18","question":"审批草稿必须包含哪些内容？","expected_file":"approval-draft.md","answer_contains":"申请金额"},
+  {"id":"q19","question":"项目结项需要什么材料？","expected_file":"project-close.md","answer_contains":"预算决算表"},
+  {"id":"q20","question":"公司的火星出差补贴是多少？","expected_file":null,"answer_contains":"没有足够依据"}
+]

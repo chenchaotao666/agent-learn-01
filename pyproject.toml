@@ -1,0 +1,9 @@
+[project]
+name = "agent-learn-office"
+version = "0.2.0"
+description = "DeepSeek and Pydantic AI office learning workbench"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

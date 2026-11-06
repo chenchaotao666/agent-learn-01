@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>知行 · AI 办公实验室</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="/"><span class="brand-mark">知</span><span>知行<small>AI 办公实验室</small></span></a>
+    <div class="section-label">WORKSPACE / 本地工作台</div>
+    <button id="new-chat" class="nav-button active">＋ 新建问答</button>
+    <a href="/workbench" class="text-button full">打开 Agent 工作台 →</a>
+    <div class="section-title"><span>知识库</span><span id="doc-count" class="count">0</span></div>
+    <button id="seed" class="secondary full">导入 20 份演示资料</button>
+    <button id="upload" class="text-button full">＋ 上传 MD / TXT / PDF / DOCX</button>
+    <input id="file" type="file" accept=".md,.txt,.pdf,.docx" hidden>
+    <p class="muted small">文档内容仅用于本地学习实验</p>
+    <div id="document-list" class="document-list"></div>
+    <div class="section-title history-title"><span>最近会话</span></div>
+    <div id="history" class="history"></div>
+    <div class="sidebar-footer"><span class="status-dot"></span>本地实验版本 · v0.1</div>
+  </aside>
+  <main>
+    <header><div><span class="eyebrow">KNOWLEDGE WORKBENCH</span><h1>让每个回答，都有依据。</h1></div><span id="mode" class="badge">正在连接</span></header>
+    <div id="notice" class="notice" role="status">正在读取应用状态…</div>
+    <div id="toast" class="toast" role="alert" hidden></div>
+    <section id="messages" class="messages" aria-label="问答记录" aria-live="polite">
+      <div id="welcome" class="welcome">
+        <span class="welcome-icon">✳</span>
+        <h2>从一份制度，开始探索</h2>
+        <p>导入资料，提出问题，再回到原文核对答案。<br>这里的每一步，都是一次可复现的 RAG 实验。</p>
+        <div class="suggestions">
+          <button data-question="国内差旅住宿报销上限是多少？"><span>制度查询</span>国内差旅住宿报销上限是多少？<b>↗</b></button>
+          <button data-question="项目采购超过预算时需要什么审批？"><span>业务规则</span>项目采购超过预算时需要什么审批？<b>↗</b></button>
+          <button data-question="公司的火星出差补贴是多少？"><span>无答案测试</span>公司的火星出差补贴是多少？<b>↗</b></button>
+        </div>
+      </div>
+    </section>
+    <footer class="composer-area">
+      <form id="chat-form" class="composer"><label class="sr-only" for="question">输入问题</label><textarea id="question" rows="2" maxlength="2000" placeholder="询问制度、项目或业务规则… Enter 发送，Shift + Enter 换行" required></textarea><div class="composer-bottom"><span>回答附带检索原文 · 每次提问独立检索</span><div><button id="stop" type="button" class="secondary" hidden>停止</button><button id="send" class="primary" type="submit">发送 ↗</button></div></div></form>
+      <p class="footnote">模拟模式只摘录原文，不代表真实大模型的理解与推理能力。</p>
+    </footer>
+  </main>
+  <dialog id="source-dialog"><div class="dialog-head"><h2 id="source-title">引用原文</h2><button id="close-source" class="text-button" aria-label="关闭引用">✕</button></div><p id="source-meta" class="muted"></p><pre id="source-text"></pre></dialog>
+</body>
+</html>
