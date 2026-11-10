@@ -3,14 +3,15 @@
 <body>
 <header><div><a href="/">← 知识问答</a><h1>Agent 工作台</h1><p>从工具调用到业务结果，每一步都可以核对。</p></div><span id="configuration">连接中…</span></header>
 <div id="alert" role="status" hidden></div>
-<nav aria-label="功能导航"><button data-tab="runs" class="selected">预算 Agent</button><button data-tab="memory">对话与记忆</button><button data-tab="feedback">反馈与评测</button><button data-tab="translation">术语翻译</button><button data-tab="speech">语音问答</button></nav>
+<nav aria-label="功能导航"><button data-tab="retrieval">检索与入库</button><button data-tab="runs" class="selected">预算 Agent</button><button data-tab="memory">对话与记忆</button><button data-tab="feedback">反馈与评测</button><button data-tab="translation">术语翻译</button><button data-tab="speech">语音问答</button></nav>
 <main>
+<section id="retrieval" class="panel" hidden><div class="grid"><article><h2>检索对照实验</h2><p class="muted">比较同一问题的向量、关键词和融合结果。改写与模型重排会调用当前模型；Mock 下只验证接口流程。</p><form id="retrieval-form"><label>问题<textarea id="retrieval-query" required>项目 P1001 的预算调整需要什么材料？</textarea></label><label>召回方式<select id="retrieval-mode"><option value="hybrid">混合召回（RRF）</option><option value="vector">仅向量</option><option value="keyword">仅 BM25 关键词</option></select></label><label>查询改写<select id="retrieval-rewrite"><option value="off">关闭</option><option value="model">模型改写（保留原查询）</option></select></label><label>重排<select id="retrieval-rerank"><option value="off">关闭</option><option value="model">模型重排</option><option value="compatible">独立 Rerank 服务</option></select></label><button class="primary">运行并查看各路排名</button></form><pre id="retrieval-result"></pre></article><article><h2>异步文档入库</h2><p class="muted">上传后任务持久化到队列，由独立 Worker 处理。分块和向量全部成功后才发布新版本。</p><form id="ingestion-form"><label>文档<input id="ingestion-file" type="file" accept=".md,.txt,.pdf,.docx" required></label><label>分块策略<select id="ingestion-strategy"><option value="structure">结构分块</option><option value="fixed">固定窗口</option></select></label><button class="primary">提交入库任务</button></form><button id="refresh-jobs">刷新任务列表</button><p class="muted">Worker 启动：python -m apps.worker.main</p><div id="ingestion-list"></div></article></div></section>
 <section id="runs" class="panel">
   <div class="grid"><article><h2>发起预算审查</h2><form id="run-form">
     <label>任务目标<textarea id="goal" required maxlength="2000">检查项目采购预算并生成审批草稿</textarea></label>
     <label>项目<select id="project"><option value="">待确认（测试澄清流程）</option><option value="P1001" selected>P1001 · 星河 / 办公数字化</option><option value="P2002">P2002 · 星河 / 仓储改造</option></select></label>
     <label>申请金额（人民币）<input id="amount" value="200000.00" inputmode="decimal" placeholder="不填写时进入等待补充"></label>
-    <label>执行方式<select id="run-mode"><option value="agent">Pydantic AI Agent</option><option value="workflow">确定性工作流（对照）</option></select></label>
+    <label>执行方式<select id="run-mode"><option value="agent">Pydantic AI Agent</option><option value="workflow">确定性工作流（对照）</option><option value="multi_agent">调查 Agent → 草稿 Agent（对照）</option></select></label>
     <button class="primary">创建并执行</button><button id="seed-lab" type="button">导入演示制度</button>
   </form><h3>任务记录</h3><div id="run-list"></div></article>
   <article><h2>任务详情 <span id="run-status" class="badge">未选择</span></h2><p id="run-summary" class="muted">选择任务查看执行步骤和审批草稿。</p><ol id="steps"></ol><pre id="draft"></pre>

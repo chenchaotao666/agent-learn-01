@@ -30,11 +30,15 @@ class FeedbackService:
         return self.repo.mutate("feedback", rid, body.version, change)
 
     def publish(self):
-        cases, seen = [], set()
+        cases, seen, answers = [], set(), {}
         for feedback in self.repo.list("feedback"):
             if feedback["status"] != "accepted":
                 continue
             review = feedback["review"]
+            normalized_question = " ".join(feedback["question"].split())
+            if normalized_question in answers and answers[normalized_question] != review["expected_answer"].strip():
+                raise Conflict("同一问题存在冲突标准答案，请重新复核后发布")
+            answers[normalized_question] = review["expected_answer"].strip()
             key = hashlib.sha256((feedback["question"].strip() + review["expected_answer"].strip()).encode()).hexdigest()
             if key in seen:
                 continue
@@ -59,18 +63,19 @@ class FeedbackService:
         dataset = self.repo.get("dataset", body.dataset_id)
         results = []
         for case in dataset["cases"]:
-            hits = await self.rag.search(case["question"], body.top_k)
+            retrieval = await self.rag.inspect(case["question"], body.top_k, body.mode, body.rewrite, body.rerank)
+            hits = retrieval["hits"]
             answer = "".join([delta async for delta in self.model.stream(case["question"], hits)])
             expected = {(e["document_id"], e["version"]) for e in case["evidence"]}
             actual = {(h["document_id"], h["version"]) for h in hits}
             results.append({"case_id": case["id"], "question": case["question"], "answer": answer,
                             "retrieval_pass": expected.issubset(actual),
                             "exact_answer_contained": case["expected_answer"] in answer,
-                            "semantic_review": "pending", "citation_ids": [h["id"] for h in hits]})
+                            "semantic_review": "pending", "citation_ids": [h["id"] for h in hits], "retrieval": retrieval})
         settings = self.model.settings
         return self.repo.create("evaluation", {"dataset_id": dataset["id"], "dataset_sha256": dataset["sha256"],
             "top_k": body.top_k, "model_mode": settings.model_mode, "model": settings.deepseek_model if settings.model_mode == "deepseek" else settings.chat_model,
-            "embedding": self.rag.embedder.key, "prompt_version": "rag-v2", "results": results,
+            "embedding": self.rag.embedder.key, "pipeline": body.model_dump(exclude={"dataset_id"}), "prompt_version": "rag-v2", "results": results,
             "retrieval_pass": sum(r["retrieval_pass"] for r in results), "total": len(results),
             "note": "固定回归集；字符串包含检查不等于语义准确率，标准答案仍需人工复核。"})
 

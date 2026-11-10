@@ -26,14 +26,35 @@ class Settings:
     speech_api_key: str = field(default="", repr=False)
     asr_model: str = ""
     tts_model: str = ""
+    retrieval_mode: str = "vector"
+    keyword_backend: str = "local"
+    vector_backend: str = "local"
+    rewrite_mode: str = "off"
+    rerank_mode: str = "off"
+    chunk_strategy: str = "fixed"
+    embedding_url: str = ""
+    embedding_api_key: str = field(default="", repr=False)
+    elasticsearch_url: str = "http://127.0.0.1:9200"
+    qdrant_url: str = "http://127.0.0.1:6333"
+    rerank_url: str = ""
+    rerank_model: str = ""
+    rerank_api_key: str = field(default="", repr=False)
 
     def __post_init__(self):
         if self.model_mode not in {"mock", "ollama", "deepseek"}:
             raise ValueError("MODEL_MODE must be mock, ollama or deepseek")
         if self.tool_transport not in {"local", "stdio", "http"}:
             raise ValueError("TOOL_TRANSPORT must be local, stdio or http")
-        if self.embedding_mode not in {"hash", "ollama"}:
-            raise ValueError("EMBEDDING_MODE must be hash or ollama")
+        if self.embedding_mode not in {"hash", "ollama", "compatible"}:
+            raise ValueError("EMBEDDING_MODE must be hash, ollama or compatible")
+        for value, allowed in [(self.retrieval_mode, {"vector", "keyword", "hybrid"}),
+                               (self.keyword_backend, {"local", "elasticsearch"}),
+                               (self.vector_backend, {"local", "qdrant"}),
+                               (self.rewrite_mode, {"off", "model"}),
+                               (self.rerank_mode, {"off", "model", "compatible"}),
+                               (self.chunk_strategy, {"fixed", "structure"})]:
+            if value not in allowed:
+                raise ValueError(f"Invalid pipeline setting: {value}")
         if self.timeout <= 0 or not 0 <= self.min_score <= 1:
             raise ValueError("Invalid timeout or retrieval threshold")
 
@@ -58,4 +79,17 @@ class Settings:
             speech_api_key=os.getenv("SPEECH_API_KEY", ""),
             asr_model=os.getenv("ASR_MODEL", ""),
             tts_model=os.getenv("TTS_MODEL", ""),
+            retrieval_mode=os.getenv("RETRIEVAL_MODE", "vector"),
+            keyword_backend=os.getenv("KEYWORD_BACKEND", "local"),
+            vector_backend=os.getenv("VECTOR_BACKEND", "local"),
+            rewrite_mode=os.getenv("QUERY_REWRITE", "off"),
+            rerank_mode=os.getenv("RERANK_MODE", "off"),
+            chunk_strategy=os.getenv("CHUNK_STRATEGY", "fixed"),
+            embedding_url=os.getenv("EMBEDDING_BASE_URL", "").rstrip("/"),
+            embedding_api_key=os.getenv("EMBEDDING_API_KEY", ""),
+            elasticsearch_url=os.getenv("ELASTICSEARCH_URL", "http://127.0.0.1:9200").rstrip("/"),
+            qdrant_url=os.getenv("QDRANT_URL", "http://127.0.0.1:6333").rstrip("/"),
+            rerank_url=os.getenv("RERANK_BASE_URL", "").rstrip("/"),
+            rerank_model=os.getenv("RERANK_MODEL", ""),
+            rerank_api_key=os.getenv("RERANK_API_KEY", ""),
         )

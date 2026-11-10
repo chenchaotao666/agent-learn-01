@@ -38,7 +38,7 @@ class RunInput(Schema):
     project_id: ProjectId | None = None
     amount: Money | None = None
     client_request_id: str = Field(min_length=1, max_length=100)
-    mode: Literal["agent", "workflow"] = "agent"
+    mode: Literal["agent", "workflow", "multi_agent"] = "agent"
 
     @field_validator("amount")
     @classmethod
@@ -80,6 +80,7 @@ class MemoryInput(Schema):
     project_id: ProjectId | None = None
     source_message_id: Annotated[StrictInt, Field(ge=1)]
     confirmed: Literal[True]
+    ttl_days: Annotated[StrictInt, Field(ge=1, le=3650)] | None = None
 
 
 class MemoryUpdate(Schema):
@@ -104,6 +105,29 @@ class FeedbackReview(Schema):
 class EvaluationInput(Schema):
     dataset_id: str
     top_k: Annotated[StrictInt, Field(ge=1, le=8)] = 3
+    mode: Literal["vector", "keyword", "hybrid"] = "vector"
+    rewrite: Literal["off", "model"] = "off"
+    rerank: Literal["off", "model", "compatible"] = "off"
+
+
+class SearchInput(Schema):
+    query: str = Field(min_length=1, max_length=2000)
+    top_k: Annotated[StrictInt, Field(ge=1, le=8)] = 3
+    mode: Literal["vector", "keyword", "hybrid"] = "hybrid"
+    rewrite: Literal["off", "model"] = "off"
+    rerank: Literal["off", "model", "compatible"] = "off"
+
+
+class IngestionInput(DocumentInput):
+    strategy: Literal["fixed", "structure"] = "structure"
+    client_request_id: str = Field(min_length=1, max_length=100)
+
+    @field_validator("filename")
+    @classmethod
+    def extension(cls, value):
+        if Path(value).suffix.lower() not in {".md", ".txt", ".pdf", ".docx"}:
+            raise ValueError("入库任务仅支持 MD/TXT/PDF/DOCX")
+        return value
 
 
 class SpeechInput(Schema):

@@ -66,6 +66,30 @@ DeepSeek 用于对话、Agent 和翻译。ASR/TTS 单独配置兼容 `/audio/tra
 
 冒烟报告位于 `reports/runs/<时间>/`。测试覆盖参数校验、Pydantic AI 工具循环、检查点、确认幂等、记忆、MCP stdio、反馈集及模拟 HTTP 契约。真实 DeepSeek 效果需配置密钥后验证。
 
-本版是单用户、单进程学习实现，使用 SQLite。尚未实现 ES 混合检索、Rerank、Qdrant、OCR、多模态理解、异步入库及完整 E01–E17 验收。预算 Agent 是限定工具集的执行循环。保持排除统一模型网关、权限审计、性能成本治理和 SDD/AI Coding。
+本版是单用户学习实现，SQLite 保存发布状态及任务，独立 Worker 处理异步入库。已加入 BM25/RRF、改写、重排、结构分块、ES/Qdrant 适配器和双 Agent 对照。OCR、多模态理解及完整 E01–E17 真实质量验收仍待完成。保持排除统一模型网关、权限审计、性能成本治理和 SDD/AI Coding。
+
+## 0.3 新增功能
+
+工作台新增“检索与入库”：可切换向量、BM25、融合召回，查看每路排名；支持模型查询改写、模型重排或独立 Rerank 服务。默认仍为向量检索——当前开发集显示融合召回对无答案题存在误召回，不能直接认为效果更好。
+
+异步入库需在另一个终端启动 Worker（与 API 使用相同 `.env`）：
+
+```powershell
+.\.venv\Scripts\python.exe -m apps.worker.main
+```
+
+队列支持固定/结构分块、失败重试、取消、租约过期接管和原子发布。使用 `--once` 只处理一项任务。已有同步上传功能继续可用。
+
+预算任务可选择“调查 Agent → 草稿 Agent”，与单 Agent、固定工作流对照。记忆支持有效天数；反馈评测支持检索策略选择和同数据集结果比较。
+
+运行六组分块/检索消融：
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.evaluate_retrieval
+```
+
+可选外部索引：`docker compose -f infra/compose.yml up -d`，再设置 `KEYWORD_BACKEND=elasticsearch`、`VECTOR_BACKEND=qdrant`、`RETRIEVAL_MODE=hybrid`。首次检索会同步当前有效片段；外部服务不可用时明确失败，不自动切回本地。
+
+云端向量服务使用独立 `EMBEDDING_MODE=compatible`、`EMBEDDING_BASE_URL`、`EMBEDDING_API_KEY`、`EMBEDDING_MODEL`；DeepSeek 对话密钥不会被复用。完整配置、适配器限制与实测结果见 [高级检索与异步入库](docs/06-advanced-rag-and-ingestion.md)。
 
 [实施状态](docs/04-implementation-status.md) · [设计与实验](docs/README.md)

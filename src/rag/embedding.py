@@ -35,19 +35,30 @@ class Embedder:
         self.settings = settings
         self.key = (
             "hash-char-bigram-v1:1024" if settings.embedding_mode == "hash"
-            else f"ollama:{settings.ollama_url}:{settings.embedding_model}"
+            else f"{settings.embedding_mode}:{settings.embedding_url if settings.embedding_mode == 'compatible' else settings.ollama_url}:{settings.embedding_model}"
         )
 
     async def encode(self, texts: list[str]) -> list[list[float]]:
         if self.settings.embedding_mode == "hash":
             return [hash_vector(text) for text in texts]
         async with httpx.AsyncClient(timeout=self.settings.timeout) as client:
-            response = await client.post(
-                f"{self.settings.ollama_url}/api/embed",
-                json={"model": self.settings.embedding_model, "input": texts, "truncate": False},
-            )
+            if self.settings.embedding_mode == "compatible":
+                if not self.settings.embedding_url:
+                    raise ValueError("请配置独立的 EMBEDDING_BASE_URL，DeepSeek 对话接口不提供向量")
+                headers = {"Authorization": f"Bearer {self.settings.embedding_api_key}"} if self.settings.embedding_api_key else {}
+                response = await client.post(f"{self.settings.embedding_url}/embeddings", headers=headers,
+                    json={"model": self.settings.embedding_model, "input": texts})
+            else:
+                response = await client.post(f"{self.settings.ollama_url}/api/embed",
+                    json={"model": self.settings.embedding_model, "input": texts, "truncate": False})
             response.raise_for_status()
-            vectors = response.json().get("embeddings")
+            if self.settings.embedding_mode == "compatible":
+                data = response.json().get("data", [])
+                if sorted(d.get("index", -1) for d in data) != list(range(len(texts))):
+                    raise ValueError("Embedding indices do not match input")
+                vectors = [d["embedding"] for d in sorted(data, key=lambda d: d["index"])]
+            else:
+                vectors = response.json().get("embeddings")
         if not isinstance(vectors, list):
             raise ValueError("Embedding response is missing embeddings")
         if len(vectors) != len(texts):

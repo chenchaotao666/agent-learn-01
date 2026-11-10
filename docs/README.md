@@ -11,6 +11,7 @@
 3. [实施路线](./03-implementation-roadmap.md)：阶段依赖、任务清单、首版范围及验收条件。
 4. [实施状态](./04-implementation-status.md)：当前已实现能力、验证结果和待完成事项。
 5. [Agent、记忆、语音与反馈设计](./05-agent-memory-voice-feedback.md)：框架职责、动态规划、MCP/Skill、长期记忆和数据闭环。
+6. [高级检索与异步入库](./06-advanced-rag-and-ingestion.md)：0.3 实现、外部索引配置、独立 Worker、对照实验及已知限制。
 
 ## 实践原则
 

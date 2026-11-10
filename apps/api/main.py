@@ -28,7 +28,7 @@ def create_app(settings: Settings | None = None):
     embedder = Embedder(settings)
     rag = RagService(store, embedder, settings.min_score)
     model = Model(settings)
-    app = FastAPI(title="知行 · AI 办公实验室", version="0.2.0")
+    app = FastAPI(title="知行 · AI 办公实验室", version="0.3.0")
     app.state.store, app.state.rag, app.state.model = store, rag, model
     from apps.api.extensions import attach
     attach(app, settings, store, rag, model)
@@ -48,7 +48,9 @@ def create_app(settings: Settings | None = None):
                 'agent_framework': 'pydantic-ai', 'tool_transport': settings.tool_transport,
                 'asr_configured': bool(settings.speech_url and settings.asr_model),
                 'tts_configured': bool(settings.speech_url and settings.tts_model),
-                'version': '0.2.0'}
+                'retrieval_mode': settings.retrieval_mode, 'keyword_backend': settings.keyword_backend,
+                'vector_backend': settings.vector_backend, 'rewrite': settings.rewrite_mode, 'rerank': settings.rerank_mode,
+                'version': '0.3.0'}
 
     @app.get("/v1/documents")
     def documents():

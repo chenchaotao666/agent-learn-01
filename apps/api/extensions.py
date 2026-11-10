@@ -15,6 +15,9 @@ from src.schemas import (Confirmation, EvaluationInput, FeedbackInput, FeedbackR
                          MemoryUpdate, RunInput, RunRevision, SpeechInput, TranslationInput)
 from src.speech import SpeechService
 from src.translation import translate
+from src.schemas import SearchInput, IngestionInput
+from src.ingestions import Ingestions
+from typing import Literal
 
 
 def attach(app, settings, store, rag, model):
@@ -24,6 +27,40 @@ def attach(app, settings, store, rag, model):
     feedback = FeedbackService(repo, rag, model)
     speech = SpeechService(settings, repo)
     app.state.repo, app.state.runtime, app.state.memory = repo, runtime, memory
+    jobs = Ingestions(store, rag)
+    app.state.ingestions = jobs
+
+    @app.post("/v1/ingestions")
+    def enqueue(body: IngestionInput):
+        return jobs.create(body)
+
+    @app.post("/v1/ingestions/upload")
+    async def enqueue_file(file: UploadFile = File(...), client_request_id: str = Form(...),
+                           strategy: Literal["fixed", "structure"] = Form("structure"), document_id: str | None = Form(None)):
+        try:
+            text = parse_document(file.filename or "", await file.read(10_000_001))
+        except Exception:
+            raise HTTPException(422, "文件解析失败，请检查格式、大小和文本层") from None
+        # The queue stores parsed UTF-8 text; original filenames remain in document metadata.
+        body = IngestionInput(title=Path(file.filename).stem, filename=Path(file.filename).name, text=text,
+                              strategy=strategy, document_id=document_id, client_request_id=client_request_id)
+        return jobs.create(body)
+
+    @app.get("/v1/ingestions")
+    def ingestion_list():
+        return jobs.list()
+
+    @app.get("/v1/ingestions/{rid}")
+    def ingestion(rid: str):
+        return jobs.get(rid)
+
+    @app.post("/v1/ingestions/{rid}/retry")
+    def retry_ingestion(rid: str):
+        return jobs.change(rid, "retry")
+
+    @app.post("/v1/ingestions/{rid}/cancel")
+    def cancel_ingestion(rid: str):
+        return jobs.change(rid, "cancel")
 
     @app.get("/workbench", include_in_schema=False)
     def workbench():
@@ -56,6 +93,10 @@ def attach(app, settings, store, rag, model):
     def projects():
         from src.business import PROJECTS, get_budget
         return [get_budget(pid) for pid in PROJECTS]
+
+    @app.post("/v1/search/inspect")
+    async def inspect(body: SearchInput):
+        return await rag.inspect(body.query, body.top_k, body.mode, body.rewrite, body.rerank)
 
     @app.get("/v1/skills")
     def skills():
@@ -106,7 +147,7 @@ def attach(app, settings, store, rag, model):
 
     @app.get("/v1/memories")
     def memories():
-        return [m for m in repo.list("memory") if m["status"] == "active"]
+        return memory.active_records()
 
     @app.post("/v1/memories")
     def remember(body: MemoryInput):

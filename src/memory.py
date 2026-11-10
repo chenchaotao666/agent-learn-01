@@ -1,4 +1,5 @@
 import re
+from datetime import datetime, timedelta, timezone
 
 from src.repository import Conflict
 
@@ -8,8 +9,23 @@ class MemoryService:
         self.repo = repo
 
     def list(self, project_id=None):
-        return [m for m in self.repo.list("memory") if m["status"] == "active"
-                and (m["project_id"] is None or m["project_id"] == project_id)]
+        return [m for m in self.active_records()
+                if m["project_id"] is None or m["project_id"] == project_id]
+
+    def active_records(self):
+        active = []
+        for record in self.repo.list("memory"):
+            if record["status"] != "active":
+                continue
+            if record.get("expires_at") and datetime.fromisoformat(record["expires_at"]) <= datetime.now(timezone.utc):
+                try:
+                    self.repo.mutate("memory", record["id"], record["version"], lambda m: m.update(status="expired"))
+                except Conflict:
+                    continue
+                self.invalidate_summaries(record["source_message_id"])
+            else:
+                active.append(record)
+        return active
 
     def create(self, body):
         source = self.repo.message(body.source_message_id)
@@ -18,7 +34,8 @@ class MemoryService:
         # Volatile balances are queried from tools, never treated as long-term truth.
         if re.search(r"余额|已使用|已支付|剩余预算", body.value):
             raise ValueError("动态预算数据应实时查询，不能保存为长期记忆")
-        return self.repo.create("memory", {**body.model_dump(), "status": "active"})
+        expires_at = (datetime.now(timezone.utc) + timedelta(days=body.ttl_days)).isoformat() if body.ttl_days else None
+        return self.repo.create("memory", {**body.model_dump(), "status": "active", "expires_at": expires_at})
 
     def update(self, rid, body):
         if re.search(r"余额|已使用|已支付|剩余预算", body.value):

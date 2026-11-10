@@ -50,10 +50,17 @@ class Store:
         finally:
             db.close()
 
-    def publish(self, title, filename, text, chunks, vectors, embedding_key, document_id=None):
-        digest = hashlib.sha256((title + "\0" + text).encode()).hexdigest()
+    def publish(self, title, filename, text, chunks, vectors, embedding_key, document_id=None, processing_key="fixed", publication=None):
+        suffix = "" if processing_key == "fixed" else "\0" + processing_key
+        digest = hashlib.sha256((title + "\0" + text + suffix).encode()).hexdigest()
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
+            if publication:
+                publication(db, None)
+            def finish(result):
+                if publication:
+                    publication(db, result)
+                return result
             existing = None
             if document_id:
                 existing = db.execute("SELECT * FROM documents WHERE id=? AND deleted=0", (document_id,)).fetchone()
@@ -69,7 +76,7 @@ class Store:
                 current = db.execute("SELECT * FROM versions WHERE document_id=? AND version=?",
                                      (existing["id"], existing["active_version"])).fetchone()
                 if current["content_hash"] == digest and current["embedding_key"] == embedding_key:
-                    return {"id": existing["id"], "version": existing["active_version"], "deduplicated": True}
+                    return finish({"id": existing["id"], "version": existing["active_version"], "deduplicated": True})
                 document_id = existing["id"]
                 version = existing["active_version"] + 1
                 db.execute("UPDATE documents SET title=?,filename=?,active_version=? WHERE id=?",
@@ -85,7 +92,7 @@ class Store:
                 db.execute("INSERT INTO chunks VALUES(?,?,?,?,?,?,?)", (
                     uuid.uuid4().hex, document_id, version, chunk["text"],
                     chunk["start_line"], chunk["end_line"], json.dumps(vector)))
-        return {"id": document_id, "version": version, "deduplicated": False}
+            return finish({"id": document_id, "version": version, "deduplicated": False})
 
     def documents(self):
         with self.connect() as db:

@@ -82,6 +82,10 @@ class Runtime:
         if run["status"] != "running":
             raise ValueError("任务已停止")
         if name in run["results"]:
+            repeats = run.get("no_progress", 0) + 1
+            self.patch(rid, no_progress=repeats)
+            if repeats >= 3:
+                raise ValueError("连续重复已完成动作，任务停止以等待人工调整")
             return run["results"][name]
         project, amount = run["project_id"], run["amount"]
         if name == "get_budget":
@@ -111,7 +115,7 @@ class Runtime:
         latest = self.repo.get("run", rid)
         if latest["status"] != "running":
             raise ValueError("任务已停止")
-        fields = {"results": {**latest["results"], name: result},
+        fields = {"no_progress": 0, "results": {**latest["results"], name: result},
                   "steps": latest["steps"] + [{"action": name, "status": "complete", "plan_version": latest["plan_version"], "at": now()}]}
         if name == "create_draft":
             fields.update(draft=result, draft_hash=digest(result))
@@ -135,6 +139,8 @@ class Runtime:
                         for action in ("get_budget", "search_knowledge", "calculate_gap", "create_draft"):
                             await self.execute_tool(rid, action)
                         summary = "固定工作流已生成草稿，请核对后确认。"
+                    elif run["mode"] == "multi_agent":
+                        summary = await self.multi_agent_run(rid)
                     else:
                         summary = await self.agent_run(rid)
                 latest = self.repo.get("run", rid)
@@ -198,9 +204,42 @@ class Runtime:
 
             state = self.repo.get("run", rid)
             result = await agent.run(json.dumps({"goal": state["goal"], "project_id": state["project_id"],
-                    "amount": state["amount"], "completed": state["results"], "skill": state["skill"]}, ensure_ascii=False),
+                    "amount": state["amount"], "completed": state["results"], "handoff": state.get("handoff"), "skill": state["skill"]}, ensure_ascii=False),
                 deps=RunDeps(self, rid), usage_limits=UsageLimits(request_limit=14, tool_calls_limit=12))
             return result.output.summary
+
+    async def multi_agent_run(self, rid):
+        """A bounded investigator -> drafting agent handoff for comparison with one agent."""
+        async def mock(messages, info):
+            state = self.repo.get("run", rid)
+            for tool in ("get_budget", "search_knowledge"):
+                if tool not in state["results"]:
+                    return ModelResponse(parts=[ToolCallPart(tool, {})])
+            return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, {"summary": "调查完成，交给草稿 Agent。"})])
+        async with model_backend(self.settings, FunctionModel(mock)) as backend:
+            researcher = Agent(backend, output_type=Outcome, deps_type=RunDeps, retries=2,
+                instructions="你负责调查：调用预算查询及制度检索，完成后将证据交给草稿 Agent。不要计算或提交审批。")
+            @researcher.tool
+            async def get_budget(ctx: RunContext[RunDeps]) -> dict:
+                """取得当前项目预算。"""
+                return await self.execute_tool(rid, "get_budget")
+            @researcher.tool
+            async def search_knowledge(ctx: RunContext[RunDeps]) -> list[dict]:
+                """检索预算调整与采购规则。"""
+                return await self.execute_tool(rid, "search_knowledge")
+            @researcher.output_validator
+            def check(ctx, output: Outcome) -> Outcome:
+                if not all(k in self.repo.get("run", rid)["results"] for k in ("get_budget", "search_knowledge")):
+                    raise ModelRetry("交接前必须完成预算查询和制度检索")
+                return output
+            state = self.repo.get("run", rid)
+            result = await researcher.run(json.dumps({"goal": state["goal"], "project_id": state["project_id"]}, ensure_ascii=False),
+                deps=RunDeps(self, rid), usage_limits=UsageLimits(request_limit=8, tool_calls_limit=6))
+            latest = self.repo.get("run", rid)
+            self.patch(rid, handoff={"from": "researcher", "to": "drafter", "summary": result.output.summary,
+                "evidence_ids": [h["id"] for h in latest["results"]["search_knowledge"]],
+                "budget_version": latest["results"]["get_budget"]["source_version"]})
+        return await self.agent_run(rid)
 
     def confirm(self, rid, body):
         with self.repo.store.connect() as db:
