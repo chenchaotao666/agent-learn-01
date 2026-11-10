@@ -19,9 +19,11 @@ async def evaluate(output: Path):
     fixtures = json.loads((ROOT / "fixtures/documents.json").read_text(encoding="utf-8"))
     dataset = ROOT / "evals/smoke.json"
     cases = json.loads(dataset.read_text(encoding="utf-8"))
-    with tempfile.TemporaryDirectory() as tmp:
-        settings = Settings(database=str(Path(tmp) / "eval.sqlite3"))
+    from contextlib import ExitStack
+    with tempfile.TemporaryDirectory() as tmp, ExitStack() as cleanup:
+        settings = Settings(qdrant_url="", qdrant_path=":memory:", database=str(Path(tmp) / "eval.sqlite3"))
         rag = RagService(Store(settings.database), Embedder(settings), settings.min_score)
+        cleanup.callback(rag.close)
         for doc in fixtures:
             await rag.ingest(doc["title"], doc["filename"], doc["text"])
         results = []

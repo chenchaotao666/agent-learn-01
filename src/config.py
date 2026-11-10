@@ -10,6 +10,10 @@ ROOT = Path(__file__).resolve().parent.parent
 @dataclass(frozen=True)
 class Settings:
     database: str = "data/app.sqlite3"
+    qdrant_url: str = "http://127.0.0.1:6333"
+    qdrant_path: str = ""
+    qdrant_collection: str = "knowledge"
+    qdrant_api_key: str = field(default="", repr=False)
     model_mode: str = "mock"
     embedding_mode: str = "hash"
     ollama_url: str = "http://127.0.0.1:11434"
@@ -28,14 +32,13 @@ class Settings:
     tts_model: str = ""
     retrieval_mode: str = "vector"
     keyword_backend: str = "local"
-    vector_backend: str = "local"
+    vector_backend: str = "qdrant"
     rewrite_mode: str = "off"
     rerank_mode: str = "off"
     chunk_strategy: str = "fixed"
     embedding_url: str = ""
     embedding_api_key: str = field(default="", repr=False)
     elasticsearch_url: str = "http://127.0.0.1:9200"
-    qdrant_url: str = "http://127.0.0.1:6333"
     rerank_url: str = ""
     rerank_model: str = ""
     rerank_api_key: str = field(default="", repr=False)
@@ -61,8 +64,15 @@ class Settings:
     @classmethod
     def from_env(cls):
         load_dotenv(ROOT / ".env")
+        qdrant_url = os.getenv("QDRANT_URL", "http://127.0.0.1:6333").strip()
+        if not qdrant_url:
+            raise ValueError("QDRANT_URL 不能为空，请启动 Docker Qdrant 并配置服务地址")
         return cls(
             database=os.getenv("DATABASE_PATH", "data/app.sqlite3"),
+            qdrant_url=qdrant_url,
+            qdrant_path=os.getenv("QDRANT_PATH", "").strip(),
+            qdrant_collection=os.getenv("QDRANT_COLLECTION", "knowledge"),
+            qdrant_api_key=os.getenv("QDRANT_API_KEY", ""),
             model_mode=os.getenv("MODEL_MODE", "deepseek"),
             embedding_mode=os.getenv("EMBEDDING_MODE", "hash"),
             ollama_url=os.getenv("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/"),
@@ -81,14 +91,13 @@ class Settings:
             tts_model=os.getenv("TTS_MODEL", ""),
             retrieval_mode=os.getenv("RETRIEVAL_MODE", "vector"),
             keyword_backend=os.getenv("KEYWORD_BACKEND", "local"),
-            vector_backend=os.getenv("VECTOR_BACKEND", "local"),
+            vector_backend=os.getenv("VECTOR_BACKEND", "qdrant"),
             rewrite_mode=os.getenv("QUERY_REWRITE", "off"),
             rerank_mode=os.getenv("RERANK_MODE", "off"),
             chunk_strategy=os.getenv("CHUNK_STRATEGY", "fixed"),
             embedding_url=os.getenv("EMBEDDING_BASE_URL", "").rstrip("/"),
             embedding_api_key=os.getenv("EMBEDDING_API_KEY", ""),
             elasticsearch_url=os.getenv("ELASTICSEARCH_URL", "http://127.0.0.1:9200").rstrip("/"),
-            qdrant_url=os.getenv("QDRANT_URL", "http://127.0.0.1:6333").rstrip("/"),
             rerank_url=os.getenv("RERANK_BASE_URL", "").rstrip("/"),
             rerank_model=os.getenv("RERANK_MODEL", ""),
             rerank_api_key=os.getenv("RERANK_API_KEY", ""),

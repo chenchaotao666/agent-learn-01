@@ -11,7 +11,7 @@ services:
     volumes:
       - elastic-data:/usr/share/elasticsearch/data
   qdrant:
-    image: qdrant/qdrant:v1.12.4
+    image: qdrant/qdrant:v1.20.0
     ports:
       - "127.0.0.1:6333:6333"
     volumes:

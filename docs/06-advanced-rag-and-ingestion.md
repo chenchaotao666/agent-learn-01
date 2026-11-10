@@ -17,7 +17,7 @@
 ## 外部索引与云端向量
 
 ```powershell
-docker compose -f infra/compose.yml up -d
+docker compose -f infra/compose.yml up -d elasticsearch
 ```
 
 配置 `KEYWORD_BACKEND=elasticsearch`、`VECTOR_BACKEND=qdrant` 后重启 API/Worker。Compose 将服务仅绑定本机端口，使用持久化 Docker 卷。不要使用 `down -v`，除非明确需要删除索引数据。

@@ -21,7 +21,7 @@ async def evaluate():
     results=[]
     for strategy in ('fixed','structure'):
         with tempfile.TemporaryDirectory() as tmp:
-            settings=Settings(database=str(Path(tmp)/'eval.db'),chunk_strategy=strategy)
+            settings=Settings(vector_backend="local",database=str(Path(tmp)/'eval.db'),chunk_strategy=strategy)
             rag=RagService(Store(settings.database),Embedder(settings),settings.min_score)
             for doc in docs:
                 await rag.ingest(**doc)

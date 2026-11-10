@@ -50,7 +50,7 @@ class Store:
         finally:
             db.close()
 
-    def publish(self, title, filename, text, chunks, vectors, embedding_key, document_id=None, processing_key="fixed", publication=None):
+    def publish(self, title, filename, text, chunks, vectors, embedding_key, document_id=None, processing_key="fixed", publication=None, before_commit=None):
         suffix = "" if processing_key == "fixed" else "\0" + processing_key
         digest = hashlib.sha256((title + "\0" + text + suffix).encode()).hexdigest()
         with self.connect() as db:
@@ -92,7 +92,20 @@ class Store:
                 db.execute("INSERT INTO chunks VALUES(?,?,?,?,?,?,?)", (
                     uuid.uuid4().hex, document_id, version, chunk["text"],
                     chunk["start_line"], chunk["end_line"], json.dumps(vector)))
+            if before_commit:
+                rows = [dict(row) for row in db.execute(
+                    "SELECT c.*,d.title,d.filename FROM chunks c JOIN documents d ON d.id=c.document_id "
+                    "WHERE c.document_id=? AND c.version=?", (document_id, version))]
+                before_commit(rows)
             return finish({"id": document_id, "version": version, "deduplicated": False})
+
+    def active_chunk_ids(self, embedding_key):
+        with self.connect() as db:
+            return [r[0] for r in db.execute(
+                "SELECT c.id FROM chunks c JOIN documents d ON c.document_id=d.id "
+                "AND c.version=d.active_version JOIN versions v ON v.document_id=d.id "
+                "AND v.version=d.active_version WHERE d.deleted=0 AND v.embedding_key=?",
+                (embedding_key,))]
 
     def documents(self):
         with self.connect() as db:

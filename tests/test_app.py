@@ -14,7 +14,7 @@ from src.rag.embedding import Embedder, hash_vector
 
 @pytest.fixture
 def client(tmp_path):
-    with TestClient(create_app(Settings(database=str(tmp_path / "test.sqlite3")))) as client:
+    with TestClient(create_app(Settings(qdrant_url="", qdrant_path=":memory:", database=str(tmp_path / "test.sqlite3")))) as client:
         yield client
 
 
@@ -149,7 +149,7 @@ def test_ollama_embedding_contract(monkeypatch):
 
 
 def test_stream_cancellation_persists_interrupted_status(tmp_path):
-    app = create_app(Settings(database=str(tmp_path / "cancel.sqlite3")))
+    app = create_app(Settings(qdrant_url="", qdrant_path=":memory:", database=str(tmp_path / "cancel.sqlite3")))
     class Slow:
         async def stream(self, question, hits):
             yield "第一段"
@@ -178,7 +178,7 @@ def test_stream_cancellation_persists_interrupted_status(tmp_path):
 
 
 def test_total_model_timeout_is_reported(tmp_path):
-    app = create_app(Settings(database=str(tmp_path / "timeout.sqlite3"), timeout=0.1))
+    app = create_app(Settings(qdrant_url="", qdrant_path=":memory:", database=str(tmp_path / "timeout.sqlite3"), timeout=0.1))
     class Slow:
         async def stream(self, question, hits):
             await asyncio.sleep(1)

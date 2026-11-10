@@ -17,9 +17,9 @@ from src.rag.refinement import rerank
 from src.schemas import IngestionInput
 
 
-@pytest.fixture
-def client(tmp_path):
-    with TestClient(create_app(Settings(database=str(tmp_path/'test.db')))) as c:
+@pytest.fixture(params=["local", "qdrant"])
+def client(tmp_path, request):
+    with TestClient(create_app(Settings(database=str(tmp_path/'test.db'), vector_backend=request.param, qdrant_url='', qdrant_path=':memory:'))) as c:
         yield c
 
 

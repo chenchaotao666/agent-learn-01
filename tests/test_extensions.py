@@ -18,7 +18,7 @@ from src.tool_transport import ToolTransport
 
 @pytest.fixture
 def client(tmp_path):
-    with TestClient(create_app(Settings(database=str(tmp_path / "db.sqlite3")))) as c:
+    with TestClient(create_app(Settings(qdrant_url="", qdrant_path=":memory:", database=str(tmp_path / "db.sqlite3")))) as c:
         c.post('/v1/demo/seed')
         yield c
 
@@ -146,7 +146,7 @@ def test_strict_api_boundary(client, body):
 
 
 def test_deepseek_missing_key_is_explicit(tmp_path):
-    with TestClient(create_app(Settings(database=str(tmp_path/'ds.db'), model_mode='deepseek'))) as c:
+    with TestClient(create_app(Settings(qdrant_url="", qdrant_path=":memory:", database=str(tmp_path/'ds.db'), model_mode='deepseek'))) as c:
         assert c.get('/health').json()['configured'] is False
         assert 'DEEPSEEK_API_KEY' in c.post('/v1/chat', json={"question":"hello"}).text
         run = create_run(c)
@@ -222,7 +222,7 @@ def test_audio_adapter_contract(tmp_path,monkeypatch):
         assert json.loads(request.content)['input']=='金额 100 元 '
         return httpx.Response(200,content=wav.getvalue(),headers={'content-type':'audio/wav'})
     monkeypatch.setattr(httpx,'AsyncClient',lambda **kw:original(transport=httpx.MockTransport(handler),**kw))
-    service=SpeechService(Settings(database=store.path,speech_url='https://audio.invalid/v1',asr_model='asr',tts_model='tts'),repo)
+    service=SpeechService(Settings(qdrant_url="", qdrant_path=":memory:", database=store.path,speech_url='https://audio.invalid/v1',asr_model='asr',tts_model='tts'),repo)
     async def run():
         transcript=await service.transcribe(wav.getvalue(),'a.wav','audio/wav')
         assert transcript['status']=='needs_review' and 'P1001' in transcript['critical_fields']

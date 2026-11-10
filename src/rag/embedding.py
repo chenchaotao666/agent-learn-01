@@ -38,6 +38,11 @@ class Embedder:
             else f"{settings.embedding_mode}:{settings.embedding_url if settings.embedding_mode == 'compatible' else settings.ollama_url}:{settings.embedding_model}"
         )
 
+    async def encode_query(self, query: str):
+        if self.settings.embedding_mode == "ollama" and self.settings.embedding_model.startswith("qwen3-embedding"):
+            query = "Instruct: Given a question, retrieve relevant document passages that answer the question\nQuery: " + query
+        return (await self.encode([query]))[0]
+
     async def encode(self, texts: list[str]) -> list[list[float]]:
         if self.settings.embedding_mode == "hash":
             return [hash_vector(text) for text in texts]
